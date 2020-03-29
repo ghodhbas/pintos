@@ -11,6 +11,8 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -27,6 +29,9 @@ static struct list ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
+
+// List of sleeping processes.
+static struct list sleep_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -92,6 +97,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -249,6 +255,44 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
+
+// START CODE
+
+bool
+thread_comparator(struct list_elem *a, struct list_elem *b, void *aux){
+  struct thread *t1 = list_entry(a, struct thread, elem);
+  struct thread *t2 = list_entry(b, struct thread, elem);
+
+  return t1->wake_up_time < t2->wake_up_time;
+}
+
+void
+thread_sleep(int64_t ticks){
+  struct thread* cur = thread_current();
+  cur->wake_up_time = ticks + timer_ticks();
+  list_insert_ordered(&sleep_list, &cur->elem, thread_comparator, NULL);
+  thread_block();
+}
+
+void
+thread_wake (void){
+  int64_t curr_time = timer_ticks();
+  while(list_begin(&sleep_list) != list_end(&sleep_list)){
+    // get head
+    struct thread *head = list_entry(list_begin(&sleep_list), struct thread, elem);
+
+    if(head->wake_up_time > curr_time) break;
+    
+    list_remove(list_begin(&sleep_list));
+    thread_unblock(head);
+  }
+}
+// typedef bool list_less_func (const struct list_elem *a,
+//                              const struct list_elem *b,
+//                              void *aux);
+
+
+// END CODE
 
 /* Returns the name of the running thread. */
 const char *
