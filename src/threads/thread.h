@@ -124,7 +124,7 @@ void thread_unblock (struct thread *);
 
 bool thread_comparator(struct list_elem *a, struct list_elem *b, void *aux);
 void thread_sleep (int64_t ticks);
-void thead_wake(void);
+void thread_wake(void);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);

@@ -76,6 +76,22 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+bool thread_comparator_priority(struct list_elem *a, struct list_elem *b, void *aux)
+{
+  struct thread *t1 = list_entry(a, struct thread, elem);
+  struct thread *t2 = list_entry(b, struct thread, elem);
+
+  return t1->priority > t2->priority;
+}
+
+bool thread_comparator(struct list_elem *a, struct list_elem *b, void *aux)
+{
+  struct thread *t1 = list_entry(a, struct thread, elem);
+  struct thread *t2 = list_entry(b, struct thread, elem);
+
+  return t1->wake_up_time < t2->wake_up_time;
+}
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -153,6 +169,39 @@ thread_print_stats (void)
           idle_ticks, kernel_ticks, user_ticks);
 }
 
+void print_list(const struct list *list)
+{
+  ASSERT(list != NULL);
+
+  printf("print list:");
+  struct list_elem *e;
+
+  for (e = list_begin(list); e != list_end(list); e = list_next(e))
+  {
+    struct thread *t = list_entry(e, struct thread, elem);
+    // printf("%s %d\t", t->name, t->sleep_until);
+    printf("%d \n", t->priority);
+  }
+  printf("\n");
+}
+
+void update_priority()
+{
+  if (!list_empty(&ready_list))
+  {
+    struct thread *head =
+        list_entry(list_begin(&ready_list), struct thread, elem);
+
+    //printf("check_priority %d\n", next_thread->priority);
+
+    if (thread_current()->priority < head->priority)
+    {
+      thread_yield();
+      //printf("check_priority %d\n", thread_current()->priority);
+    }
+  }
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
@@ -215,6 +264,8 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  update_priority();
+
   return tid;
 }
 
@@ -251,20 +302,12 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, (list_less_func *)thread_comparator_priority, 0);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
 
 // START CODE
-
-bool
-thread_comparator(struct list_elem *a, struct list_elem *b, void *aux){
-  struct thread *t1 = list_entry(a, struct thread, elem);
-  struct thread *t2 = list_entry(b, struct thread, elem);
-
-  return t1->wake_up_time < t2->wake_up_time;
-}
 
 void
 thread_sleep(int64_t ticks){
@@ -360,7 +403,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, (list_less_func *)thread_comparator_priority, 0);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -387,7 +430,14 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  int old_priority = thread_current()->priority;
+  thread_current()->priority = new_priority;
+  // thread_current()->original_priority = new_priority;
+
+  if (old_priority > new_priority)
+  {
+    update_priority();
+  }
 }
 
 /* Returns the current thread's priority. */
