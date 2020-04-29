@@ -92,7 +92,6 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-
     int64_t wake_up_time;
 
 
@@ -122,7 +121,11 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 void thread_block (void);
 void thread_unblock (struct thread *);
 
+void update_priority(void);
+
 bool thread_comparator(struct list_elem *a, struct list_elem *b, void *aux);
+bool thread_comparator_priority(struct list_elem *a, struct list_elem *b, void *aux);
+
 void thread_sleep (int64_t ticks);
 void thread_wake(void);
 

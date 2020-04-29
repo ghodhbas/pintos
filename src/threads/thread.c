@@ -185,7 +185,7 @@ void print_list(const struct list *list)
   printf("\n");
 }
 
-void update_priority()
+void update_priority(void)
 {
   if (!list_empty(&ready_list))
   {
@@ -313,7 +313,7 @@ void
 thread_sleep(int64_t ticks){
   struct thread* cur = thread_current();
   cur->wake_up_time = ticks + timer_ticks();
-  list_insert_ordered(&sleep_list, &cur->elem, thread_comparator, NULL);
+  list_insert_ordered(&sleep_list, &cur->elem, (list_less_func *) thread_comparator, NULL);
   thread_block();
 }
 
